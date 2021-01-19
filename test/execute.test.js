@@ -264,17 +264,41 @@ describe('iterator', () => {
   })
 })
 
-test('nested structures', () => {
-  const input = {
-    foo: [
-      {
-        bar: 'baz',
-      },
-      {
-        bar: 'quux',
-      },
-    ],
-  }
+describe('nested structures', () => {
+  test('#1', () => {
+    const input = {
+      foo: [
+        {
+          bar: 'baz',
+        },
+        {
+          bar: 'quux',
+        },
+      ],
+    }
 
-  expect(executeScript(input, '.foo[] | .bar')).toEqual(['baz', 'quux'])
+    expect(executeScript(input, '.foo[] | .bar')).toEqual(['baz', 'quux'])
+  })
+  
+  test('#2', () => {
+    const input = {
+      data: {
+        foo: {
+          entries: [
+            { name: 'foo-a', a: { b: { c: { d: 1 } } } },
+            { name: 'foo-b', a: { b: { c: { d: 2 } } } },
+          ],
+        },
+        bar: {
+          entries: [
+            { name: 'bar-a', a: { b: { c: { d: 3 } } } },
+            { name: 'bar-b', a: { b: { c: { d: 4 } } } },
+          ],
+        },
+      },
+    }
+
+    expect(executeScript(input, '[.data[].entries[] | {name: .name, value: .a.b.c.d}]')).toEqual(
+      [{name:'foo-a',value:1},{name:'foo-b',value:2},{name:'bar-a',value:3},{name:'bar-b',value:4}])
+  })
 })
