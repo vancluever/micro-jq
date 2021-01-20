@@ -99,7 +99,35 @@ function evaluateOpCodes(context, opCodes, callback) {
         break
 
       case 'create_array':
-        context = [ opCode.values.map(each => evaluateOpCodes(context, each)) ]
+        context = [ opCode.values.reduce((result, each) => { 
+          let exploded = false
+          let explodedLen = 0
+          function cb(len) {
+            exploded = true
+            explodedLen = len
+            if (callback) {
+              callback(len)
+            }
+          }
+          values = evaluateOpCodes(context, [...each], cb)
+          if (!exploded) {
+            result.push(values)
+          } else {
+            switch (explodedLen) {
+              case 0:
+                break
+               
+              case 1:
+                result.push(values)
+                break
+
+              default:
+                result = result.concat(values)
+            }
+          }
+
+          return result
+        }, []) ]
         break
 
       case 'create_object':
@@ -125,38 +153,58 @@ function evaluateOpCodes(context, opCodes, callback) {
           function cb(len) {
             exploded = true
             explodedLen = len
+            if (callback) {
+              callback(len)
+            }
           }
-          let values = evaluateOpCodes(context, each.value, cb)
+          let values = evaluateOpCodes(context, [...each.value], cb)
           if (!exploded) {
             result[each.key] = [values]
           } else {
-            // We need to determine what to do with an exploded value
-            // based on the reported length during explosion.
             switch (explodedLen) {
               case 0:
-                // The promotion attempt on this value during regular
-                // evaluation more than likely would have caused it
-                // to be rendered as undefined. Just set to an empty
-                // array.
                 result[each.key] = []
-              break
+                break
               
               case 1:
-                // Value would have been auto-promoted, regardless of
-                // what it is now. "Demote" it as if we didn't
-                // explode it at all, so we can iterate on it.
                 result[each.key] = [values]
-              break
+                break
 
               default:
-                // Safe to just pass the array for iteration here.
                 result[each.key] = values
-              break
+                break
             }
           }
 
           return result
         }, {})))
+        break
+
+      case 'pipe':
+        let exploded = false
+        let explodedLen = 0
+        function cb(len) {
+          exploded = true
+          explodedLen = len
+          if (callback) {
+            callback(len)
+          }
+        }
+        context = evaluateOpCodes(context, [...opCode.in], cb)
+        if (!exploded) {
+          context = evaluateOpCodes([context], [...opCode.out])
+        } else {
+          switch (explodedLen) {
+            case 0:
+              context = []
+              break
+            
+            case 1:
+              context = [context]
+              break
+          }
+          context = context.map(each => evaluateOpCodes([each], [...opCode.out]))
+        }
         break
 
       default:
